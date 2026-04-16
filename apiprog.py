@@ -88,7 +88,7 @@ def get_projects():
                 "instructor": row[6],
                 "topic": row[7],
                 "difficulty": row[8],
-                "deadline": str(row[9]) if row[7] else None
+                "deadline": str(row[9]) if row[9] else None
             })
 
         return jsonify(projects)
