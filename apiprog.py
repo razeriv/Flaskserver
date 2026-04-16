@@ -62,34 +62,38 @@ def profile():
 
 @app.route("/projects", methods=["GET"])
 def get_projects():
-    conn = get_db()
-    cur = conn.cursor()
+    try:
+        conn = get_db()
+        cur = conn.cursor()
 
-    cur.execute("""
-        SELECT title, description, requirements, details,
-               instructor, topic, difficulty, deadline
-        FROM projects
-    """)
+        cur.execute("""
+            SELECT title, description, requirements, details,
+                   instructor, topic, difficulty, deadline
+            FROM projects
+        """)
 
-    rows = cur.fetchall()
+        rows = cur.fetchall()
 
-    cur.close()
-    conn.close()
+        cur.close()
+        conn.close()
 
-    projects = []
-    for row in rows:
-        projects.append({
-            "title": row[0],
-            "description": row[1],
-            "requirements": row[2],
-            "details": row[3],
-            "instructor": row[4],
-            "topic": row[5],
-            "difficulty": row[6],
-            "deadline": row[7].isoformat() if row[7] else None
-        })
+        projects = []
+        for row in rows:
+            projects.append({
+                "title": row[0],
+                "description": row[1],
+                "requirements": row[2],
+                "details": row[3],
+                "instructor": row[4],
+                "topic": row[5],
+                "difficulty": row[6],
+                "deadline": str(row[7]) if row[7] else None
+            })
 
-    return jsonify(projects)
+        return jsonify(projects)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/")
 def home():
