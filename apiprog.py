@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_jwt_extended import (
-    JWTManager, create_access_token, jwt_required, get_jwt_identity
-)
+    JWTManager, create_access_token, jwt_required, get_jwt_identity)
 import psycopg2
 
 app = Flask(__name__)
@@ -12,9 +11,9 @@ jwt = JWTManager(app)
 def get_db():
     return psycopg2.connect(
         host="localhost",
-        database="mydb",
-        user="postgres",
-        password="your_password"
+        database="Tech",
+        user="admin2",
+        password="admin"
     )
 
 @app.route("/login", methods=["POST"])
@@ -67,8 +66,8 @@ def get_projects():
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT title, description, requirements, details,
-                   instructor, topic, difficulty, deadline
+            SELECT id, id_tutor, title, description, requirements, details,
+                   tutor, topic, difficulty, deadline, status
             FROM projects
         """)
 
@@ -80,14 +79,16 @@ def get_projects():
         projects = []
         for row in rows:
             projects.append({
-                "title": row[0],
-                "description": row[1],
-                "requirements": row[2],
-                "details": row[3],
-                "instructor": row[4],
-                "topic": row[5],
-                "difficulty": row[6],
-                "deadline": str(row[7]) if row[7] else None
+                "id": row[0],
+                "id_tutor": row[1],
+                "title": row[2],
+                "description": row[3],
+                "requirements": row[4],
+                "details": row[5],
+                "instructor": row[6],
+                "topic": row[7],
+                "difficulty": row[8],
+                "deadline": str(row[9]) if row[7] else None
             })
 
         return jsonify(projects)
