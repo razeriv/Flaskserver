@@ -86,7 +86,7 @@ def get_projects():
             "instructor": row[4],
             "topic": row[5],
             "difficulty": row[6],
-            "deadline": row[7]
+            "deadline": row[7].isoformat() if row[7] else None
         })
 
     return jsonify(projects)
@@ -97,4 +97,4 @@ def home():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
