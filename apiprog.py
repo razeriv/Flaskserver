@@ -20,34 +20,33 @@ def get_db():
 
 @app.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    username = data.get("username")
-    password = data.get("password")
     name = data.get("name")
     surname = data.get("surname")
     email = data.get("email")
     faculty = data.get("faculty")
     group = data.get("group")
+    password = data.get("password")
 
-    if not username or not password or not email:
-        return jsonify({"error": "username, email and password are required"}), 400
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
 
     conn = get_db()
     cur = conn.cursor()
 
     try:
-        cur.execute("SELECT id FROM users WHERE username = %s OR email = %s", (username, email))
+        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cur.fetchone():
-            return jsonify({"error": "User already exists"}), 409
+            return jsonify({"error": "User with this email already exists"}), 409
 
         hashed_password = generate_password_hash(password)
 
         cur.execute("""
-            INSERT INTO users (username, password, name, surname, email, faculty, "group")
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO users (name, surname, email, faculty, "group", password)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (username, hashed_password, name, surname, email, faculty, group))
+        """, (name, surname, email, faculty, group, hashed_password))
 
         user_id = cur.fetchone()["id"]
         conn.commit()
@@ -59,15 +58,19 @@ def register():
             "token": token,
             "user": {
                 "id": user_id,
-                "username": username,
+                "email": email,
                 "name": name,
-                "surname": surname,
-                "email": email
+                "surname": surname
             }
         }), 201
 
+    except psycopg2.Error as e:
+        conn.rollback()
+        print("Database error:", e)
+        return jsonify({"error": "Database error", "details": str(e)}), 500
     except Exception as e:
         conn.rollback()
+        print("Unexpected error:", e)
         return jsonify({"error": str(e)}), 500
     finally:
         cur.close()
