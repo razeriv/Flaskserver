@@ -26,7 +26,7 @@ def register():
     surname = data.get("surname")
     email = data.get("email")
     faculty = data.get("faculty")
-    group = data.get("group")
+    group_number = data.get("group")
     password = data.get("password")
 
     if not email or not password:
@@ -43,10 +43,11 @@ def register():
         hashed_password = generate_password_hash(password)
 
         cur.execute("""
-            INSERT INTO users (name, surname, email, faculty, "group", password)
+            INSERT INTO users 
+            (name, surname, email, faculty, group_number, password_hash)
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (name, surname, email, faculty, group, hashed_password))
+        """, (name, surname, email, faculty, group_number, hashed_password))
 
         user_id = cur.fetchone()["id"]
         conn.commit()
@@ -60,18 +61,18 @@ def register():
                 "id": user_id,
                 "email": email,
                 "name": name,
-                "surname": surname
+                "surname": surname,
+                "faculty": faculty,
+                "group_number": group_number
             }
         }), 201
 
-    except psycopg2.Error as e:
-        conn.rollback()
-        print("Database error:", e)
-        return jsonify({"error": "Database error", "details": str(e)}), 500
     except Exception as e:
         conn.rollback()
-        print("Unexpected error:", e)
-        return jsonify({"error": str(e)}), 500
+        print("=== REGISTRATION ERROR ===")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Server error", "details": str(e)}), 500
     finally:
         cur.close()
         conn.close()
