@@ -5,25 +5,27 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
-app.config["JWT_SECRET_KEY"] = "super-secret-key-change-in-production-2026"
+app.config["JWT_SECRET_KEY"] = "super-secret-key"
+
 jwt = JWTManager(app)
 
 
 def get_db():
     return psycopg2.connect(
         host="localhost",
-        database="Tech",
-        user="admin2",
-        password="admin",
+        database="mydb",
+        user="iam_user",
+        password="12345678",
         cursor_factory=RealDictCursor
     )
+
 
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json() or {}
-
-    name = data.get("name")
-    surname = data.get("surname")
+    
+    first_name = data.get("name")
+    last_name = data.get("surname")
     email = data.get("email")
     faculty = data.get("faculty")
     group_number = data.get("group")
@@ -34,7 +36,6 @@ def register():
 
     conn = get_db()
     cur = conn.cursor()
-
     try:
         cur.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cur.fetchone():
@@ -44,15 +45,15 @@ def register():
 
         cur.execute("""
             INSERT INTO users 
-            (name, surname, email, faculty, group_number, password_hash)
+            (first_name, last_name, email, faculty, group_number, password_hash)
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (name, surname, email, faculty, group_number, hashed_password))
+        """, (first_name, last_name, email, faculty, group_number, hashed_password))
 
         user_id = cur.fetchone()["id"]
         conn.commit()
 
-        token = create_access_token(identity=user_id)
+        token = create_access_token(identity=str(user_id))
 
         return jsonify({
             "message": "Registration successful",
@@ -60,8 +61,8 @@ def register():
             "user": {
                 "id": user_id,
                 "email": email,
-                "name": name,
-                "surname": surname,
+                "first_name": first_name,
+                "last_name": last_name,
                 "faculty": faculty,
                 "group_number": group_number
             }
@@ -77,35 +78,38 @@ def register():
         cur.close()
         conn.close()
 
+
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    username = data.get("username")
+    data = request.get_json() or {}
+    login = data.get("username") or data.get("email")
     password = data.get("password")
 
-    if not username or not password:
-        return jsonify({"error": "username and password required"}), 400
+    if not login or not password:
+        return jsonify({"error": "Login (email or username) and password required"}), 400
 
     conn = get_db()
     cur = conn.cursor()
-
     try:
-        cur.execute(
-            "SELECT id, password FROM users WHERE username = %s OR email = %s",
-            (username, username)
-        )
+        cur.execute("""
+            SELECT id, password_hash 
+            FROM users 
+            WHERE email = %s
+        """, (login,))
+        
         user = cur.fetchone()
-
-        if not user or not check_password_hash(user["password"], password):
+        if not user or not check_password_hash(user["password_hash"], password):
             return jsonify({"error": "Invalid credentials"}), 401
 
-        token = create_access_token(identity=user["id"])
+        token = create_access_token(identity=str(user["id"]))
+        return jsonify({"token": token, "message": "Login successful"}), 200
 
-        return jsonify({"token": token})
-
+    except Exception as e:
+        return jsonify({"error": "Server error", "details": str(e)}), 500
     finally:
         cur.close()
         conn.close()
+
 
 @app.route("/profile", methods=["GET"])
 @jwt_required()
@@ -113,17 +117,33 @@ def profile():
     user_id = get_jwt_identity()
     conn = get_db()
     cur = conn.cursor()
-
     try:
         cur.execute("""
-            SELECT id, username, name, surname, email, faculty, "group"
-            FROM users WHERE id = %s
+            SELECT 
+                id, 
+                email, 
+                first_name, 
+                last_name, 
+                faculty, 
+                group_number,
+                role,
+                is_active,
+                is_verified,
+                about,
+                created_at
+            FROM users 
+            WHERE id = %s
         """, (user_id,))
+        
         user = cur.fetchone()
-        return jsonify(user) if user else jsonify({"error": "User not found"}), 404
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        return jsonify(user), 200
     finally:
         cur.close()
         conn.close()
+
 
 @app.route("/projects", methods=["GET"])
 def get_projects():
