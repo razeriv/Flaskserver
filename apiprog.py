@@ -24,12 +24,12 @@ def get_db():
 def register():
     data = request.get_json() or {}
     
-    first_name = data.get("name")
-    last_name = data.get("surname")
-    email = data.get("email")
-    faculty = data.get("faculty")
-    group_number = data.get("group")
-    password = data.get("password")
+    first_name   = data.get("first_name") or data.get("name")
+    last_name    = data.get("last_name") or data.get("surname")
+    email        = data.get("email")
+    course       = data.get("course")
+    group_number = data.get("group_number") or data.get("group")
+    password     = data.get("password")
 
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
@@ -45,10 +45,10 @@ def register():
 
         cur.execute("""
             INSERT INTO users 
-            (first_name, last_name, email, faculty, group_number, password_hash)
+                (first_name, last_name, email, course, group_number, password_hash)
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (first_name, last_name, email, faculty, group_number, hashed_password))
+        """, (first_name, last_name, email, course, group_number, hashed_password))
 
         user_id = cur.fetchone()["id"]
         conn.commit()
@@ -59,11 +59,11 @@ def register():
             "message": "Registration successful",
             "token": token,
             "user": {
-                "id": user_id,
+                "id": str(user_id),
                 "email": email,
                 "first_name": first_name,
                 "last_name": last_name,
-                "faculty": faculty,
+                "course": course,
                 "group_number": group_number
             }
         }), 201
@@ -82,11 +82,11 @@ def register():
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
-    login = data.get("username") or data.get("email")
+    login = data.get("email") or data.get("username")
     password = data.get("password")
 
     if not login or not password:
-        return jsonify({"error": "Login (email or username) and password required"}), 400
+        return jsonify({"error": "Email and password are required"}), 400
 
     conn = get_db()
     cur = conn.cursor()
@@ -102,7 +102,10 @@ def login():
             return jsonify({"error": "Invalid credentials"}), 401
 
         token = create_access_token(identity=str(user["id"]))
-        return jsonify({"token": token, "message": "Login successful"}), 200
+        return jsonify({
+            "message": "Login successful",
+            "token": token
+        }), 200
 
     except Exception as e:
         return jsonify({"error": "Server error", "details": str(e)}), 500
@@ -120,17 +123,18 @@ def profile():
     try:
         cur.execute("""
             SELECT 
-                id, 
-                email, 
-                first_name, 
-                last_name, 
-                faculty, 
+                id,
+                email,
+                first_name,
+                last_name,
+                course,
                 group_number,
                 role,
                 is_active,
                 is_verified,
                 about,
-                created_at
+                created_at,
+                updated_at
             FROM users 
             WHERE id = %s
         """, (user_id,))
@@ -151,8 +155,17 @@ def get_projects():
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT id, id_tutor, title, description, requirements, details,
-                   tutor as instructor, topic, difficulty, deadline
+            SELECT 
+                id, 
+                id_tutor, 
+                title, 
+                description, 
+                requirements, 
+                details,
+                tutor as instructor, 
+                topic, 
+                difficulty, 
+                deadline
             FROM projects
         """)
         projects = cur.fetchall()
