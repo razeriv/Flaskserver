@@ -127,9 +127,9 @@ def profile():
 
 @app.route("/projects", methods=["GET"])
 def get_projects():
+    conn = get_db()
+    cur = conn.cursor()
     try:
-        conn = get_db()
-        cur = conn.cursor()
         cur.execute("""
             SELECT id, id_tutor, title, description, requirements, details,
                    tutor as instructor, topic, difficulty, deadline
