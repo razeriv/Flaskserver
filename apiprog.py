@@ -126,6 +126,50 @@ def profile():
         cur.close()
         conn.close()
 
+@app.route("/profile", methods=["PATCH"])
+@jwt_required()
+def update_profile():
+    user_id = get_jwt_identity()
+    data = request.get_json() or {}
+
+    about = data.get("about")
+
+    if about is None:
+        return jsonify({"error": "Поле 'about' обязательно"}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+            UPDATE users 
+            SET about = %s, 
+                updated_at = NOW()
+            WHERE id = %s
+            RETURNING id, email, first_name, last_name, course, group_number,
+                      role, is_active, is_verified, about, created_at, updated_at
+        """, (about, user_id))
+
+        updated_user = cur.fetchone()
+
+        if not updated_user:
+            return jsonify({"error": "Пользователь не найден"}), 404
+
+        conn.commit()
+        return jsonify(updated_user), 200
+
+    except Exception as e:
+        conn.rollback()
+        print("=== UPDATE PROFILE ERROR ===")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Server error", "details": str(e)}), 500
+
+    finally:
+        cur.close()
+        conn.close()
+    
+
 @app.route("/projects", methods=["GET"])
 def get_projects():
     conn = get_db()
